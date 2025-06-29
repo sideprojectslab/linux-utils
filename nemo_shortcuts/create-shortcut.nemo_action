@@ -1,0 +1,6 @@
+[Nemo Action]
+Name=Create Shortcut
+Comment=Creates a .desktop shortcut to this item
+Exec=sh -c "/home/$USER/.local/share/nemo-shortcut/create-shortcut.sh %F"
+Selection=any
+Extensions=any;
