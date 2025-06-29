@@ -1,6 +1,8 @@
 # Nemo Create-Shortcut Action
 
-This tool adds a "create shortcut" context menu to the Nemo file manager that imitates the functionality of Windows Explorer's "create shortcut" context menu entry.
+This tool adds a "Create Shortcut" context menu entry to the Nemo file manager that imitates the functionality of Windows Explorer's "create shortcut" context menu entry.
+
+An additional "Install Application" entry is installed that is only available for shortcuts (.desktop files) which copies the shortcut to the `~/.local/share/applications` folder so that it can be found in the application menu.
 
 ## Rationale
 
