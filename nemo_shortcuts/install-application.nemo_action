@@ -1,0 +1,7 @@
+[Nemo Action]
+Name=Install Application
+Comment=Registers a .desktop file with the OS
+Exec=sh -c 'cp "$1" /home/$USER/.local/share/applications/ && update-desktop-database /home/$USER/.local/share/applications && notify-send notify-send "Installed: $(basename "$1")"' _ %F
+Selection=notnone
+Extensions=desktop;
+SingleFile=true

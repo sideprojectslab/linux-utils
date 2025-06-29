@@ -8,6 +8,8 @@ make_shortcut_name() {
 }
 
 
+SCRIPT_DIR="$(dirname "$0")"
+LOGFILE="$SCRIPT_DIR/log.txt"
 TARGET="$(realpath "$1")"
 BASENAME="$(basename "$TARGET")"
 PARENT_DIR="$(dirname "$TARGET")"
@@ -16,6 +18,8 @@ SHORTCUT_NAME_NOEXT="${SHORTCUT_NAME%.*}"
 SHORTCUT_PATH="$PARENT_DIR/$SHORTCUT_NAME.desktop"
 SHORTCUT_PATH_NOEXT="$PARENT_DIR/$SHORTCUT_NAME_NOEXT.desktop"
 
+ICON_PATH=""
+ICON_NAME=""
 
 ################################################################################
 
@@ -33,9 +37,76 @@ EOF
 
 ################################################################################
 
+extract_appimage_icon() {
+	echo "Attempting AppImage icon extraction" >> $LOGFILE
+
+	ICON_PATH="$HOME/.local/share/icons/$BASENAME.png"
+	APPIMAGE_EXTR="$PARENT_DIR/squashfs-root"
+
+	"$TARGET" --appimage-extract > /dev/null
+
+	echo $APPIMAGE_EXTR >> $LOGFILE
+	APPIMAGE_DESKTOP=$(find "$APPIMAGE_EXTR" -maxdepth 1 -name '*.desktop' | head -n 1)
+
+	if [[ -z "$APPIMAGE_DESKTOP" ]]; then
+		echo "No Appimage .desktop file found." >> $LOGFILE
+		rm -rf "$APPIMAGE_EXTR"
+		return 1
+	fi
+	echo "Appimage .desktop file found: $APPIMAGE_DESKTOP" >> $LOGFILE
+
+	APPIMAGE_ICON=$(grep -i '^Icon=' "$APPIMAGE_DESKTOP" | head -n1 | cut -d'=' -f2)
+
+	if [[ -z "$APPIMAGE_ICON" ]]; then
+		echo "No Icon entry found in $APPIMAGE_DESKTOP" >> $LOGFILE
+		rm -rf "$APPIMAGE_EXTR"
+		return 1
+	fi
+	echo "Icon entry found: $APPIMAGE_ICON" >> $LOGFILE
+
+	ICON_FILE=$(find "$APPIMAGE_EXTR" -maxdepth 1 -type f -iname "${APPIMAGE_ICON}.*" | head -n1)
+
+	if [[ -z "$ICON_FILE" ]]; then
+		echo "No matching icon found for '$ICON_FILE'" >> $LOGFILE
+		rm -rf "$APPIMAGE_EXTR"
+		return 1
+	fi
+	echo "Icon file found: $ICON_FILE" >> $LOGFILE
+
+	if [[ "$ICON_FILE" == *.* ]]; then
+		extension="${ICON_FILE##*.}"
+	else
+		extension=""
+	fi
+
+	ICON_PATH="$HOME/.local/share/icons/$BASENAME.$extension"
+	cp "$ICON_FILE" "$ICON_PATH"
+	rm -rf "$APPIMAGE_EXTR"
+
+	return 0
+}
+
+################################################################################
+
 create_appimage_shortcut() {
+	ICON_NAME="application-x-executable"
 	ICON_PATH="$HOME/.local/share/icons/$BASENAME.png"
 	xapp-appimage-thumbnailer -i "$TARGET" -o "$ICON_PATH" -s 64
+
+	if [ $? -ne 0 ]; then
+		echo "Thumbnailer failed or crashed." >> $LOGFILE
+		extract_appimage_icon
+
+		if [ $? -eq 0 ]; then
+			ICON_NAME=$ICON_PATH
+			echo "Manual icon extraction successful" >> $LOGFILE
+		else
+			echo "Icon extraction failed" >> $LOGFILE
+		fi
+	else
+		ICON_NAME=$ICON_PATH
+		echo "Icon extraction successful" >> $LOGFILE
+	fi
 
 	SHORTCUT_PATH=$SHORTCUT_PATH_NOEXT
 	SHORTCUT_NAME=$SHORTCUT_NAME_NOEXT
@@ -45,7 +116,7 @@ create_appimage_shortcut() {
 [Desktop Entry]
 Name=$SHORTCUT_NAME
 Exec=$TARGET %F
-Icon=$ICON_PATH
+Icon=$ICON_NAME
 Terminal=false
 Type=Application
 StartupNotify=false
@@ -107,6 +178,11 @@ copy_shortcut() {
 }
 
 ################################################################################
+
+# overwriting the log file
+: > "$LOGFILE"
+
+cd $PARENT_DIR
 
 if [ -d "$TARGET" ]; then
 	create_folder_shortcut
